@@ -66,11 +66,13 @@ jobs:
           ./unixnu build kernel "${board_args[@]}"
 
       - name: Audit linked read-only UFS ABI
+        id: audit
         working-directory: .ci-src/UniXNU
         run: |
           work=$(./unixnu status --json -D "$GITHUB_WORKSPACE/ci/21h16/device" \
             --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150" \
             | python3 -c 'import json, sys; print(json.load(sys.stdin)["output"])')
+          echo "work=$work" >> "$GITHUB_OUTPUT"
           python3 "$work/tree/scripts/build-nabu-ufs-readonly.py" \
             --check-candidate "$work/kernel/kernel.macho" \
             --object "$work/tree/build/native-ufs/NativeUfs.o" \
@@ -87,3 +89,17 @@ jobs:
                 f"{report['inherited_slots_checked']} inherited slots, "
                 f"{len(report['linked_symbols'])} required symbols verified.")
           PY
+
+      - name: Build UEFI loader and verify XNU entry in QEMU
+        working-directory: .ci-src/UniXNU
+        env:
+          KERNEL_WORK: ${{ steps.audit.outputs.work }}
+        run: |
+          brew install qemu
+          export PATH="$(brew --prefix llvm)/bin:$(brew --prefix lld)/bin:$PATH"
+          board_args=(-D "$GITHUB_WORKSPACE/ci/21h16/device" --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150")
+          ./unixnu build package "${board_args[@]}"
+          UNIXNU_EDK2="$KERNEL_WORK/tree/refer/edk2" \
+            bash "$KERNEL_WORK/tree/scripts/build-darwinboot.sh"
+          python3 "$GITHUB_WORKSPACE/ci/21h16/qemu-entry.py" \
+            --core "$PWD" --work "$KERNEL_WORK" --output "$RUNNER_TEMP/qemu-entry"
