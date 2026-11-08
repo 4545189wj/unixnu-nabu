@@ -51,6 +51,8 @@ early_security_init = ""
 [payload]
 volume = "NABUPROBE"
 size_mib = 64
+tools = true
+timeout = -1
 dram_size = 0x140000000
 kernel_args = ["-v", "serial=3", "cpus=1", "nabu-source-text=1"]
 

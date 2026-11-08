@@ -151,13 +151,16 @@ jobs:
               descriptor.write_bytes(data.replace(source.encode(), (assets / filename).as_uri().encode()))
           PY
 
-      - name: Integrate and build the read-only initrd driver
+      - name: Build the UEFI firmware with read-only initrd and menu logs
         working-directory: .ci-src/uefi
         run: |
           platform="$GITHUB_WORKSPACE/ci/21h16/platform"
           core="$GITHUB_WORKSPACE/.ci-src/UniXNU"
           git apply --ignore-space-change "$platform/uefi-initrd.patch"
-          cp -R "$core/package/UniXNUPkg/Driver/UniXNURamDiskDxe" UniXNU/package/UniXNUPkg/Driver/
+          git apply --ignore-space-change "$platform/uefi-advanced-logger.patch"
+          cmp "$core/package/UniXNUPkg/Include/Protocol/UniXNULoader.h" \
+            UniXNU/package/UniXNUPkg/Include/Protocol/UniXNULoader.h
+          cp -R "$core/package/UniXNUPkg/." UniXNU/package/UniXNUPkg/
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends mtools
           bash ./setup_env.sh -p apt
@@ -169,26 +172,33 @@ jobs:
           MTOOLS_SKIP_CHECK=1 mformat -C -F -T 131072 -v NABUTEST -i "$RUNNER_TEMP/synthetic-initrd.img" ::
           cp "$RUNNER_TEMP/synthetic-initrd.img" Resources/ramdisk
           python3 ./build_uefi.py -d nabu -r DEBUG -c
-          test -n "$(find Build/nabuPkg/DEBUG_CLANGPDB -name 'UniXNURamDiskDxe.efi' -print -quit)"
+          fv=Build/nabuPkg/DEBUG_CLANGPDB/FV/FVMAIN.Fv.txt
+          grep -iF '75CA63AD-FBAE-4A06-92A0-F937C671251D' "$fv"
+          grep -iF '8D4E7F50-3A2C-4C9A-9E1B-50C4C8472D41' "$fv"
 
-      - name: Verify a temporary boot image with a synthetic FAT initrd
+      - name: Verify firmware-only and synthetic FAT boot images
         working-directory: .ci-src/UniXNU
         run: |
           platform="$GITHUB_WORKSPACE/ci/21h16/platform"
           uefi="$GITHUB_WORKSPACE/.ci-src/uefi"
           git apply "$GITHUB_WORKSPACE/ci/21h16/unixnu-21h16.patch"
-          ./unixnu bootimg -D "$platform" --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150" \
-            --uefi "$uefi" --fd "$uefi/Build/nabuPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd" \
-            --dtb "$uefi/Resources/DTBs/nabu.dtb" --ramdisk "$uefi/Resources/ramdisk" \
-            --output "$RUNNER_TEMP/nabu-firmware-fixture.img"
-          python3 - "$RUNNER_TEMP/boot.json" <<'PY'
+          verify_bootimg() {
+            local output="$1" ramdisk="$2" expected_bytes="$3"
+            ./unixnu bootimg -D "$platform" --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150" \
+              --uefi "$uefi" --fd "$uefi/Build/nabuPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd" \
+              --dtb "$uefi/Resources/DTBs/nabu.dtb" --ramdisk "$ramdisk" \
+              --output "$output/boot.img"
+            python3 - "$output/boot.json" "$expected_bytes" <<'PY'
           import json, sys
           from pathlib import Path
 
           report = json.loads(Path(sys.argv[1]).read_text())
-          assert report["header_version"] == 1 and report["ramdisk_bytes"] == 64 * 1024 * 1024
-          print("Nabu BootShim, 3 MiB UEFI FD, firmware DTB and synthetic 64 MiB FAT initrd round-tripped.")
+          assert report["header_version"] == 1 and report["ramdisk_bytes"] == int(sys.argv[2])
+          print(f'Boot image verified: {report["ramdisk_bytes"]} ramdisk bytes, SHA-256 {report["image_sha256"]}')
           PY
+          }
+          verify_bootimg "$RUNNER_TEMP/nabu-uefi-only" none 0
+          verify_bootimg "$RUNNER_TEMP/nabu-firmware-fixture" "$uefi/Resources/ramdisk" $((64 * 1024 * 1024))
 
       - name: Set up the UniXNU Linux kernel toolchain
         working-directory: .ci-src/UniXNU

@@ -1,0 +1,58 @@
+diff --git a/Platforms/Xiaomi/nabuPkg/nabu.dsc b/Platforms/Xiaomi/nabuPkg/nabu.dsc
+--- a/Platforms/Xiaomi/nabuPkg/nabu.dsc
++++ b/Platforms/Xiaomi/nabuPkg/nabu.dsc
+@@ -69,6 +69,8 @@
+   #
+   gQcomPkgTokenSpaceGuid.PcdPlatformType|"LA"
+ 
++  gUniXNUPkgTokenSpaceGuid.PcdUniXNUDeviceModel|"nabu"
++
+ [LibraryClasses]
+   #
+   # Memory Libraries
+@@ -85,6 +87,18 @@
+   #
+   UniXNULib|UniXNUPkg/Library/UniXNULib/UniXNULib.inf
+ 
++  AdvancedLoggerAccessLib|AdvLoggerPkg/Library/AdvancedLoggerAccessLib/AdvancedLoggerAccessLib.inf
++  AdvancedLoggerHdwPortLib|AdvLoggerPkg/Library/AdvancedLoggerHdwPortLibNull/AdvancedLoggerHdwPortLibNull.inf
++  AssertLib|AdvLoggerPkg/Library/AssertLib/AssertLib.inf
++  QrEncoderLib|MsGraphicsPkg/Library/QrEncoderLib/QrEncoderLib.inf
++
++[LibraryClasses.common.DXE_CORE]
++  DebugLib|AdvLoggerPkg/Library/BaseDebugLibAdvancedLogger/BaseDebugLibAdvancedLogger.inf
++  AdvancedLoggerLib|AdvLoggerPkg/Library/AdvancedLoggerLib/DxeCore/AdvancedLoggerLib.inf
++
++[LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.UEFI_APPLICATION]
++  AdvancedLoggerLib|AdvLoggerPkg/Library/AdvancedLoggerLib/Dxe/AdvancedLoggerLib.inf
++
+ [Components]
+   #
+   # ACPI Tables
+@@ -95,6 +109,13 @@
+   # UniXNU boot manager + DarwinBoot kernel loader
+   #
+   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+-  UniXNUPkg/Application/UniXNU/UniXNU.inf
++  UniXNUPkg/Application/UniXNU/UniXNU.inf {
++    <LibraryClasses>
++      DebugLib|AdvLoggerPkg/Library/BaseDebugLibAdvancedLogger/BaseDebugLibAdvancedLogger.inf
++  }
+   UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
+-  DarwinBootPkg/Driver/DarwinBoot.inf
++  UniXNUPkg/Driver/AdvancedLogDxe/AdvancedLogDxe.inf
++  DarwinBootPkg/Driver/DarwinBoot.inf {
++    <LibraryClasses>
++      DebugLib|AdvLoggerPkg/Library/BaseDebugLibAdvancedLogger/BaseDebugLibAdvancedLogger.inf
++  }
+diff --git a/Platforms/Xiaomi/nabuPkg/nabu.fdf b/Platforms/Xiaomi/nabuPkg/nabu.fdf
+--- a/Platforms/Xiaomi/nabuPkg/nabu.fdf
++++ b/Platforms/Xiaomi/nabuPkg/nabu.fdf
+@@ -101,6 +101,7 @@
+   INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+   INF UniXNUPkg/Application/UniXNU/UniXNU.inf
+   INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
++  INF UniXNUPkg/Driver/AdvancedLogDxe/AdvancedLogDxe.inf
+   INF DarwinBootPkg/Driver/DarwinBoot.inf
+ 
+   # Device Tree
