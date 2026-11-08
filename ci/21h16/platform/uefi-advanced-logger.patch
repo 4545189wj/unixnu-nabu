@@ -23,7 +23,7 @@ diff --git a/Platforms/Xiaomi/nabuPkg/nabu.dsc b/Platforms/Xiaomi/nabuPkg/nabu.d
 +  DebugLib|AdvLoggerPkg/Library/BaseDebugLibAdvancedLogger/BaseDebugLibAdvancedLogger.inf
 +  AdvancedLoggerLib|AdvLoggerPkg/Library/AdvancedLoggerLib/DxeCore/AdvancedLoggerLib.inf
 +
-+[LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.UEFI_APPLICATION]
++[LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.UEFI_DRIVER, LibraryClasses.common.UEFI_APPLICATION]
 +  AdvancedLoggerLib|AdvLoggerPkg/Library/AdvancedLoggerLib/Dxe/AdvancedLoggerLib.inf
 +
  [Components]
