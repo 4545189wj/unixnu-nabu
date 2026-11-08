@@ -64,3 +64,26 @@ jobs:
           board_args=(-D "$GITHUB_WORKSPACE/ci/21h16/device" --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150")
           ./unixnu defconfig nabu_ufs_readonly_defconfig "${board_args[@]}"
           ./unixnu build kernel "${board_args[@]}"
+
+      - name: Audit linked read-only UFS ABI
+        working-directory: .ci-src/UniXNU
+        run: |
+          work=$(./unixnu status --json -D "$GITHUB_WORKSPACE/ci/21h16/device" \
+            --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["output"])')
+          python3 "$work/tree/scripts/build-nabu-ufs-readonly.py" \
+            --check-candidate "$work/kernel/kernel.macho" \
+            --object "$work/tree/build/native-ufs/NativeUfs.o" \
+            --prelink-report "$work/kernel/kernel.json" \
+            --output-dir "$work/kernel"
+          python3 - "$work/kernel/candidate-bindings.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text())
+          print(f"Read-only UFS ABI {report['readonly_abi']}: "
+                f"{report['linked_block_slots_checked']} linked virtual slots, "
+                f"{report['inherited_slots_checked']} inherited slots, "
+                f"{len(report['linked_symbols'])} required symbols verified.")
+          PY
