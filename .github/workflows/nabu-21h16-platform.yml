@@ -78,7 +78,7 @@ jobs:
 
   initrd-firmware:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 180
     steps:
       - name: Check out diagnostic sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -188,4 +188,44 @@ jobs:
           report = json.loads(Path(sys.argv[1]).read_text())
           assert report["header_version"] == 1 and report["ramdisk_bytes"] == 64 * 1024 * 1024
           print("Nabu BootShim, 3 MiB UEFI FD, firmware DTB and synthetic 64 MiB FAT initrd round-tripped.")
+          PY
+
+      - name: Set up the UniXNU Linux kernel toolchain
+        working-directory: .ci-src/UniXNU
+        run: sudo python3 scripts/linux/setup-toolchain.py --package-manager apt -j "$(nproc)"
+
+      - name: Verify the boot image with the nabu platform payload
+        working-directory: .ci-src/UniXNU
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          platform="$GITHUB_WORKSPACE/ci/21h16/platform"
+          uefi="$GITHUB_WORKSPACE/.ci-src/uefi"
+          git apply "$platform/adt-timer.patch"
+          ln -s ../device/scripts "$platform/scripts"
+          ln -s ../device/feeds.toml "$platform/feeds.toml"
+          board_args=(-D "$platform" --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150")
+          ./unixnu defconfig nabu_bootstrap_defconfig "${board_args[@]}"
+          # Synthetic platform seed for CI only.
+          ./unixnu build kernel payload "${board_args[@]}" --unique-chip-id 1
+          work=$(./unixnu status --json "${board_args[@]}" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["output"])')
+          payload="$work/payload/payload.img"
+          mcopy -i "$payload" ::/EFI/UniXNU/Payloads/kernel.macho "$RUNNER_TEMP/platform-test.macho"
+          mcopy -i "$payload" ::/EFI/UniXNU/Payloads/kernel.macho.adt "$RUNNER_TEMP/platform-test.adt"
+          cmp "$work/kernel/kernel.macho" "$RUNNER_TEMP/platform-test.macho"
+          python3 "$platform/check-adt.py" "$RUNNER_TEMP/platform-test.adt" "$RUNNER_TEMP/platform-test.macho"
+          image_dir="$RUNNER_TEMP/nabu-platform"
+          mkdir -p "$image_dir"
+          ./unixnu bootimg "${board_args[@]}" \
+            --uefi "$uefi" --fd "$uefi/Build/nabuPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd" \
+            --dtb "$uefi/Resources/DTBs/nabu.dtb" --ramdisk "$payload" \
+            --output "$image_dir/boot.img"
+          python3 - "$image_dir/boot.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text())
+          assert report["header_version"] == 1 and report["ramdisk_bytes"] == 64 * 1024 * 1024
+          print(f'Nabu platform boot image verified: {report["image_bytes"]} bytes, SHA-256 {report["image_sha256"]}')
           PY
