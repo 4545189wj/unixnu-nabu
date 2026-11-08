@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: BSD-2-Clause-Patent
+// Xiaomi Pad 5 (nabu) board DTS for UniXNU. Hardware values come from the
+// unit's own firmware device tree (/sys/firmware/fdt) and the SM8150
+// reference pinned in the soc source.
+/dts-v1/;
+/include/ "sm8150.dtsi"
+
+/ {
+    model = "Xiaomi Pad 5";
+    compatible = "xiaomi,nabu", "qcom,sm8150";
+
+    // The format-2 ADT converter requires one enabled, contiguous memory
+    // range. Bank 0 (0x80000000..0xbcc00000) contains firmware-owned regions
+    // and is excluded from the XNU handoff. The two high physical banks meet
+    // at 0x140000000 and form the 5 GiB XNU-owned window. Verify these bounds
+    // against this tablet's Recovery FDT before a device boot.
+    memory@c0000000 {
+        device_type = "memory";
+        reg = <0 0xc0000000 0x1 0x40000000>;
+    };
+};

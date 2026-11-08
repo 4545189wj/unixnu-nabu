@@ -3,6 +3,9 @@ name: Nabu 21H16 read-only kernel
 on:
   push:
     branches: [nabu-21h16-ci]
+    paths-ignore:
+      - "ci/21h16/platform/**"
+      - ".github/workflows/nabu-21h16-platform.yml"
   workflow_dispatch:
 
 permissions:

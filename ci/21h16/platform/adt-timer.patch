@@ -1,0 +1,16 @@
+diff --git a/scripts/unixnu/devicetree.py b/scripts/unixnu/devicetree.py
+index dd4839f..f532712 100644
+--- a/scripts/unixnu/devicetree.py
++++ b/scripts/unixnu/devicetree.py
+@@ -217,6 +217,11 @@ def hardware_properties(entry, handles, base=0):
+             properties.append((key, raw))
+         elif key in U32:
+             properties.append((key, struct.pack('<I', entry.scalar(key))))
++        elif key == 'unixnu,virtual-timer-intid':
++            intid = entry.scalar(key)
++            if not 16 <= intid <= 31:
++                raise Error(f'{entry.name}: {key} must be a GIC PPI in 16..31')
++            properties.append(('virtual-timer-intid', struct.pack('<I', intid)))
+         elif key in U64:
+             cells = entry.cells(key)
+             if len(cells) not in (1, 2):
