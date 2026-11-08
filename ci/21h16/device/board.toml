@@ -1,0 +1,66 @@
+schema_version = 2
+
+[board]
+name = "nabu"
+soc = "SM8150"
+soc_source = "sm8150"
+# Requires the matching 21H16 profile in the UniXNU checkout.
+os_profile = "ipados-17.7-21H16"
+description = "Xiaomi Pad 5"
+kit = "nabu"
+
+# Canonical upstream catalog ids. Upstream renamed the Native* repositories:
+# NativeUfs->ShengUfs, NativeRamBlock->RamBlock, NativeVirtioBlock->VirtioMmioBlock,
+# NativePrelink->XnuPrelink, NativeKeyStoreEvents->AppleKeyStoreState. The nabu-only
+# components (NabuAdreno, AdrenoMetal fork, metal2vulkan, NabuPlatform, NabuTouch,
+# device) are declared in components.toml pending upstream catalog registration.
+
+[ipsw]
+url = "https://updates.cdn-apple.com/2024FallFCS/fullrestores/062-78914/A081E8C4-D00A-4FC5-A650-A42EA1726236/iPad_10.2_17.7_21H16_Restore.ipsw"
+product = "iPad7,11"
+version = "17.7"
+build = "21H16"
+device_class = "j171ap"
+chip_id = 0x8010
+board_id = 0x1C
+security_domain = 1
+fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustCache"]
+
+[ipsw.sha256]
+"kernelcache.release.ipad7c" = "2c395d03d21129d79f4ad9648fe30b1dd8fc62b17f180b79976604102a4678ba"
+"DeviceTree.j171ap.im4p" = "1d5ce5ee967b98df2b0017931d3a18b77add92f8902b42b12061ab5e21fd0ebb"
+"044-17597-018.dmg.trustcache" = "7640ab0933ba6a9048b6de8cf7e1e0d4806350c5eb2ccb3bc1284b79b1499e2d"
+"044-18090-018.dmg.trustcache" = "381d0eeb39949a4ed9cbca7f89ae3442fa37e9afcaaa5f1314465b43aaa46ea4"
+
+# iPadOS windows live in a deliberately unallocated UFS range on LUN0 sda;
+# the GPT userdata entry belongs to Android and is not repartitioned.
+# OS window: LBA 2739968, 11718723 x 512B sectors; SystemOS window: LBA
+# 4204809, 6451200 x 512B sectors. The combined span is LBA 2739968..5011208.
+
+[components]
+include = ["ArmDTPlatform", "ArmCpu", "DarwinBoot", "ShengUfs", "XnuPrelink"]
+
+[kernel]
+defconfig = "nabu_ufs_readonly_defconfig"
+config_fragments = ["arch:configs/common.config", "soc:configs/sm8150.config", "os:configs/ipados.config"]
+# Use the board's read-only LUN implementation in place of the shared
+# storage recipes. Keep their source dependencies available to the build.
+component_archives = false
+patch_series = [
+  "arch:patches/xnu/series",
+  "soc:patches/xnu/series",
+  "os:patches/xnu/series",
+  "device:patches/xnu/series",
+]
+archives = [
+  "build-corecrypto-14.py",
+  "build-corecrypto-14.py --namespace",
+  "build-nabu-platform.py ArmDTPlatform",
+  "build-nabu-platform.py ArmCpu",
+  "build-libpthread-kernel.py",
+  "build-nabu-ufs-readonly.py",
+]
+
+[kernel.prelink]
+roots = ["com.apple.filesystems.apfs"]
+early_security_init = ""

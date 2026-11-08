@@ -1,0 +1,18 @@
+--- a/iokit/KernelConfigTables.cpp
++++ b/iokit/KernelConfigTables.cpp
+@@ -95,14 +95,9 @@
+ #if defined(XNU_NATIVE_UFS) && XNU_NATIVE_UFS
+     "   ,{"
+     "     'IOClass'         = NativeUfs;"
++    "     'IOMatchCategory' = NativeUfsNub;"
+     "     'IOProviderClass' = IOPlatformDevice;"
+     "     'IOProbeScore'    = 1000:32;"
+     "   }"
+-    "   ,{"
+-    "     'IOClass'         = NativeUfs;"
+-    "     'IOMatchCategory' = NativeUfsRoot;"
+-    "     'IOProviderClass' = IOPlatformExpertDevice;"
+-    "     'IOProbeScore'    = 500:32;"
+-    "   }"
+ #endif
+     ")";

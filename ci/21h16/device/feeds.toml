@@ -1,0 +1,41 @@
+[[source]]
+name = "ArmCpu"
+kind = "driver"
+git = "https://github.com/UniXNU/ArmCpu.git"
+commit = "1951cc8444b340d7d8879e9418220cf29eb711d7"
+
+[[source]]
+name = "ArmDTPlatform"
+kind = "driver"
+git = "https://github.com/UniXNU/ArmDTPlatform.git"
+commit = "0d544705c2e89725caabc0542bb96bc8febd8c70"
+
+[[source]]
+name = "DarwinBoot"
+kind = "driver"
+git = "https://github.com/UniXNU/DarwinBoot.git"
+commit = "d099354d0eab34df5088ca1ba89c9c88bc3260bb"
+
+[[source]]
+name = "ShengUfs"
+kind = "driver"
+git = "https://github.com/UniXNU/ShengUfs.git"
+commit = "af785c1777161a62931425c2faaa536ce0bebd5b"
+
+[[source]]
+name = "VirtioMmioBlock"
+kind = "driver"
+git = "https://github.com/UniXNU/VirtioMmioBlock.git"
+commit = "98909eb9198a4360d7a43be831887cb8b74d814d"
+
+[[source]]
+name = "XnuPrelink"
+kind = "kit"
+git = "https://github.com/UniXNU/XnuPrelink.git"
+commit = "2b6ffb50117eee820b98aca9bd51b5c7dfb2970e"
+
+[[source]]
+name = "VerifiedRoot"
+kind = "kit"
+git = "https://github.com/UniXNU/VerifiedRoot.git"
+commit = "2854c61f6c4dfda870ac3d93e1f03d9181edb041"

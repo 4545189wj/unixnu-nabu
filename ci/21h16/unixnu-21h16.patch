@@ -1,0 +1,110 @@
+diff --git a/scripts/unixnu/components.py b/scripts/unixnu/components.py
+index ece8fc2..3682d2e 100644
+--- a/scripts/unixnu/components.py
++++ b/scripts/unixnu/components.py
+@@ -109,7 +109,10 @@ def resolve(ctx, modules):
+         module = modules.get(key)
+         if spec.get('legacy_name'):
+             candidate = modules.get((kind, spec['legacy_name']))
+-            if candidate and official_alias(ctx, candidate, spec) and (module is None or _priority(candidate) < _priority(module)):
++            pinned = module and module.origin == 'git' and (module.source or {}).get('commit')
++            if (candidate and not (candidate.origin == 'base' and pinned)
++                    and official_alias(ctx, candidate, spec)
++                    and (module is None or _priority(candidate) < _priority(module))):
+                 module = candidate
+         if module is None:
+             path = ctx.root / spec.get('path', f'{kind}s/{identifier}')
+diff --git a/scripts/unixnu/feeds.py b/scripts/unixnu/feeds.py
+index a20e9fe..2efa37f 100644
+--- a/scripts/unixnu/feeds.py
++++ b/scripts/unixnu/feeds.py
+@@ -191,7 +191,14 @@ def resolve(ctx):
+                     add('package', 'main' if base == ctx.root else 'device', base / 'package', label)
+                 continue
+             for name in _children(base / folder):
+-                add(kind, name, base / folder / name, label)
++                path = base / folder / name
++                # Uninitialized submodules must not shadow pinned format-2 feeds.
++                if ctx.schema_version == 2 and kind in ('driver', 'kit') and not any(path.iterdir()):
++                    continue
++                source = sources.get((kind, name), {})
++                if ctx.schema_version == 2 and label == 'base' and source.get('git') and source.get('commit'):
++                    continue
++                add(kind, name, path, label)
+     # 7: git sources
+     for (kind, name), entry in sources.items():
+         if entry.get('git') and kind != 'soc':
+diff --git a/scripts/unixnu/kernel.py b/scripts/unixnu/kernel.py
+index 08f85a8..0ed58b8 100644
+--- a/scripts/unixnu/kernel.py
++++ b/scripts/unixnu/kernel.py
+@@ -104,9 +104,14 @@ def linux_env(ctx):
+ 
+ def archive_plan(ctx):
+     """Expand selected component recipes at their ordered archive positions."""
+-    entries = ctx.board.get('kernel', {}).get('archives', [])
++    config = ctx.board.get('kernel', {})
++    entries = config.get('archives', [])
+     if ctx.schema_version == 1:
+         return [('script', entry) for entry in entries]
++    if config.get('component_archives') is False:
++        if any(entry.startswith('component:') for entry in entries):
++            raise Error('[kernel] component_archives = false requires a script-only archive list')
++        return [('script', entry) for entry in entries]
+     specs = {spec['id']: spec for spec in ctx.component_specs}
+     required = {name for name, spec in specs.items() if spec.get('build') and spec.get('build_stage', 'kernel') == 'kernel'}
+     result, visited = [], set()
+diff --git a/profiles/os/ipados-17.7-21H16/configs/ipados.config b/profiles/os/ipados-17.7-21H16/configs/ipados.config
+new file mode 100644
+index 0000000..8757db7
+--- /dev/null
++++ b/profiles/os/ipados-17.7-21H16/configs/ipados.config
+@@ -0,0 +1 @@
++CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
+diff --git a/profiles/os/ipados-17.7-21H16/patches/xnu/series b/profiles/os/ipados-17.7-21H16/patches/xnu/series
+new file mode 100644
+index 0000000..a566ff2
+--- /dev/null
++++ b/profiles/os/ipados-17.7-21H16/patches/xnu/series
+@@ -0,0 +1,2 @@
++component:XnuPrelink/patches/xnu-10063.141.1-security-init.patch
++component:XnuPrelink/patches/xnu-10063.141.1-sparse-index.patch
+diff --git a/profiles/os/ipados-17.7-21H16/profile.toml b/profiles/os/ipados-17.7-21H16/profile.toml
+new file mode 100644
+index 0000000..5f94a67
+--- /dev/null
++++ b/profiles/os/ipados-17.7-21H16/profile.toml
+@@ -0,0 +1,33 @@
++[os]
++name = "ipados-17.7-21H16"
++arch = "arm64"
++darwin = "23.6.0"
++xnu_version = "10063.141.1"
++xnu_revision = "d8b80295118ef25ac3a784134bcf95cd8e88109f"
++driverkit_tag = "xnu-10063.121.3"
++trustcache_tag = "xnu-8796.101.5"
++ios_version = "17.7"
++
++[ipsw]
++product = "iPad7,11"
++version = "17.7"
++build = "21H16"
++device_class = "j171ap"
++chip_id = 0x8010
++board_id = 0x1C
++security_domain = 1
++
++[kernel.prelink]
++tool = "kits/XnuPrelink/emit_prelink.py"
++kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf"
++kernelcache_sha256 = "f7d1952c7a21633d212eccf288e77444fff0cc86976db5de292f6819c2ffa1b2"
++slide = "-0x1360000"
++early_security_init = "com.apple.driver.AppleMobileFileIntegrity=0xfffffff005b70ae0"
++
++[adt.root.string]
++model = "iPad7,11"
++target-type = "J171"
++compatible = "J171AP"
++
++[adt.chosen.string]
++osenvironment = "main"

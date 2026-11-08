@@ -1,0 +1,66 @@
+name: Nabu 21H16 read-only kernel
+
+on:
+  push:
+    branches: [nabu-21h16-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - name: Check out Nabu
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Check out UniXNU core
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: UniXNU/UniXNU
+          ref: b6de3eb11f0b0118dfc14fad6eefc884a3b69737
+          path: .ci-src/UniXNU
+          persist-credentials: false
+
+      - name: Check out SM8150 support
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: zzweiqing/UniXNU-sm8150-common
+          ref: f363dcda920101a99e440ce3e8b68849122a3c0a
+          path: .ci-src/sm8150
+          persist-credentials: false
+
+      - name: Apply 21H16 source changes
+        run: |
+          git -C .ci-src/UniXNU apply "$GITHUB_WORKSPACE/ci/21h16/unixnu-21h16.patch"
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+
+      - name: Set up kernel tools
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          brew install llvm lld
+          if ! command -v unifdef >/dev/null; then
+            brew install unifdef
+            echo "$(brew --prefix unifdef)/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Configure and build read-only kernel
+        working-directory: .ci-src/UniXNU
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          board_args=(-D "$GITHUB_WORKSPACE/ci/21h16/device" --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150")
+          ./unixnu defconfig nabu_ufs_readonly_defconfig "${board_args[@]}"
+          ./unixnu build kernel "${board_args[@]}"
