@@ -83,7 +83,7 @@ index 0000000..5f94a67
 +xnu_revision = "d8b80295118ef25ac3a784134bcf95cd8e88109f"
 +driverkit_tag = "xnu-10063.121.3"
 +trustcache_tag = "xnu-8796.101.5"
-+ios_version = "17.7"
++ios_version = "17.0"
 +
 +[ipsw]
 +product = "iPad7,11"
