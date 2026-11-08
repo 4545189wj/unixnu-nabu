@@ -110,6 +110,47 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - name: Fetch and verify pinned Mu release assets
+        working-directory: .ci-src/uefi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          assets="$RUNNER_TEMP/mu-assets"
+          mkdir -p "$assets"
+          fetch_asset() {
+            curl -fsSL --retry 2 --max-time 90 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/$1/releases/assets/$2" -o "$assets/$3"
+            printf '%s  %s\n' "$4" "$assets/$3" | sha256sum -c -
+          }
+          fetch_asset microsoft/mu_basecore 538543176 basetools.tar.gz \
+            aaf0654218f1705c25d2109de8e6040f8615b71bfdc0fcfb3ae27616f949a8a0
+          fetch_asset microsoft/mu_crypto_release 604163431 OneCrypto-Accelerated.zip \
+            c42f8d950b5546a062e3c652f3a23c4d12bbfa8a40d967a02367c5d614763661
+          python3 - "$assets" <<'PY'
+          import sys
+          from pathlib import Path
+
+          assets = Path(sys.argv[1])
+          replacements = {
+              "BaseTools/Bin/basetoolsbin_ext_dep.yaml": (
+                  "https://github.com/microsoft/mu_basecore/releases/download/v2026080000.0.0-rc0/basetools-v2026080000.0.0-rc0.tar.gz",
+                  "basetools.tar.gz",
+              ),
+              "CryptoPkg/Binaries/OneCrypto_ext_dep.json": (
+                  "https://github.com/microsoft/mu_crypto_release/releases/download/v1.1.2-OneCrypto/OneCrypto-Accelerated.zip",
+                  "OneCrypto-Accelerated.zip",
+              ),
+          }
+          for name, (source, filename) in replacements.items():
+              descriptor = Path("Mu_Basecore") / name
+              data = descriptor.read_bytes()
+              if data.count(source.encode()) != 1:
+                  raise SystemExit(f"Unexpected pinned source URL in {name}")
+              descriptor.write_bytes(data.replace(source.encode(), (assets / filename).as_uri().encode()))
+          PY
+
       - name: Integrate and build the read-only initrd driver
         working-directory: .ci-src/uefi
         run: |
