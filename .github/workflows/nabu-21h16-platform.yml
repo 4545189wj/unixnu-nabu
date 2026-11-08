@@ -75,3 +75,76 @@ jobs:
             | python3 -c 'import json, sys; print(json.load(sys.stdin)["output"])')
           mcopy -i "$work/payload/payload.img" ::/EFI/UniXNU/Payloads/kernel.macho.adt "$RUNNER_TEMP/platform-test.adt"
           python3 "$platform/check-adt.py" "$RUNNER_TEMP/platform-test.adt" "$work/kernel/kernel.macho"
+
+  initrd-firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out diagnostic sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Check out UniXNU core
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: UniXNU/UniXNU
+          ref: b6de3eb11f0b0118dfc14fad6eefc884a3b69737
+          path: .ci-src/UniXNU
+          persist-credentials: false
+
+      - name: Check out SM8150 support
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: zzweiqing/UniXNU-sm8150-common
+          ref: f363dcda920101a99e440ce3e8b68849122a3c0a
+          path: .ci-src/sm8150
+          persist-credentials: false
+
+      - name: Check out the nabu UEFI reference
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: 3214791900-del/uefi-nabu-build
+          ref: 274a0e1d1cbe3489130d9b1dc9c1f8ff1244372a
+          path: .ci-src/uefi
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Integrate and build the read-only initrd driver
+        working-directory: .ci-src/uefi
+        run: |
+          platform="$GITHUB_WORKSPACE/ci/21h16/platform"
+          core="$GITHUB_WORKSPACE/.ci-src/UniXNU"
+          git apply --ignore-space-change "$platform/uefi-initrd.patch"
+          cp -R "$core/package/UniXNUPkg/Driver/UniXNURamDiskDxe" UniXNU/package/UniXNUPkg/Driver/
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends mtools
+          bash ./setup_env.sh -p apt
+          export CLANGPDB_AARCH64_PREFIX=aarch64-linux-gnu-
+          find Resources -name '*.patch' -exec sed -i 's/\r$//' {} +
+          grep -h '^+++ b/' Resources/MuPatches/*.patch | sed 's|^+++ b/||' | sort -u | while read -r f; do
+            if [ -f "Mu_Basecore/$f" ]; then sed -i 's/\r$//' "Mu_Basecore/$f"; fi
+          done
+          MTOOLS_SKIP_CHECK=1 mformat -C -F -T 131072 -v NABUTEST -i "$RUNNER_TEMP/synthetic-initrd.img" ::
+          cp "$RUNNER_TEMP/synthetic-initrd.img" Resources/ramdisk
+          python3 ./build_uefi.py -d nabu -r DEBUG -c
+          test -n "$(find Build/nabuPkg/DEBUG_CLANGPDB -name 'UniXNURamDiskDxe.efi' -print -quit)"
+
+      - name: Verify a temporary boot image with a synthetic FAT initrd
+        working-directory: .ci-src/UniXNU
+        run: |
+          platform="$GITHUB_WORKSPACE/ci/21h16/platform"
+          uefi="$GITHUB_WORKSPACE/.ci-src/uefi"
+          git apply "$GITHUB_WORKSPACE/ci/21h16/unixnu-21h16.patch"
+          ./unixnu bootimg -D "$platform" --local-module "soc:sm8150=$GITHUB_WORKSPACE/.ci-src/sm8150" \
+            --uefi "$uefi" --fd "$uefi/Build/nabuPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd" \
+            --dtb "$uefi/Resources/DTBs/nabu.dtb" --ramdisk "$uefi/Resources/ramdisk" \
+            --output "$RUNNER_TEMP/nabu-firmware-fixture.img"
+          python3 - "$RUNNER_TEMP/boot.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text())
+          assert report["header_version"] == 1 and report["ramdisk_bytes"] == 64 * 1024 * 1024
+          print("Nabu BootShim, 3 MiB UEFI FD, firmware DTB and synthetic 64 MiB FAT initrd round-tripped.")
+          PY

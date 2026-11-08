@@ -50,7 +50,7 @@ early_security_init = ""
 
 [payload]
 volume = "NABUPROBE"
-size_mib = 192
+size_mib = 64
 dram_size = 0x140000000
 kernel_args = ["-v", "serial=3", "cpus=1", "nabu-source-text=1"]
 
@@ -60,3 +60,6 @@ root_match_volume_uuid = ""
 chip_id = "8010"
 owned_memory_size = "0x40000000"
 unique_chip_id = "required"
+
+[firmware]
+config = "nabu"

@@ -1,0 +1,18 @@
+diff --git a/Platforms/Xiaomi/nabuPkg/nabu.dsc b/Platforms/Xiaomi/nabuPkg/nabu.dsc
+--- a/Platforms/Xiaomi/nabuPkg/nabu.dsc
++++ b/Platforms/Xiaomi/nabuPkg/nabu.dsc
+@@ -97,3 +97,4 @@
+   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+   UniXNUPkg/Application/UniXNU/UniXNU.inf
++  UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
+   DarwinBootPkg/Driver/DarwinBoot.inf
+diff --git a/Platforms/Xiaomi/nabuPkg/nabu.fdf b/Platforms/Xiaomi/nabuPkg/nabu.fdf
+--- a/Platforms/Xiaomi/nabuPkg/nabu.fdf
++++ b/Platforms/Xiaomi/nabuPkg/nabu.fdf
+@@ -101,5 +101,6 @@
+   INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+   INF UniXNUPkg/Application/UniXNU/UniXNU.inf
++  INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
+   INF DarwinBootPkg/Driver/DarwinBoot.inf
+ 
+   # Device Tree
